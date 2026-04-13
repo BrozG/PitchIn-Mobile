@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,20 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { COLORS, FONTS } from '../constants/theme';
+
+const { width } = Dimensions.get('window');
 
 const InvestorSignupScreen = ({ navigation }) => {
   const [step, setStep] = useState(1);
@@ -31,23 +43,64 @@ const InvestorSignupScreen = ({ navigation }) => {
     capitalStatus: '',
   });
 
+  // Animation values
+  const contentOpacity = useSharedValue(1);
+  const contentTranslateX = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
+
   const investorTypes = ['Angel', 'VC', 'Family Office', 'Corporate VC', 'Syndicate', 'Other'];
   const checkSizeRanges = ['Under $25K', '$25K–$100K', '$100K–$500K', '$500K–$2M', '$2M+'];
   const sectors = ['Fintech', 'Healthtech', 'SaaS', 'EdTech', 'Web3', 'DeepTech', 'Consumer', 'Climate', 'Other'];
   const stages = ['Idea', 'Pre-Seed', 'Seed', 'Series A'];
   const regions = ['North America', 'Europe', 'South Asia', 'Southeast Asia', 'Middle East', 'Africa', 'Latin America', 'Global'];
 
+  const animateStepTransition = (direction, callback) => {
+    contentOpacity.value = withTiming(0, { duration: 200 });
+    contentTranslateX.value = withTiming(direction === 'next' ? -50 : 50, { duration: 200 });
+
+    setTimeout(() => {
+      callback();
+      contentTranslateX.value = direction === 'next' ? 50 : -50;
+      contentOpacity.value = withTiming(1, { duration: 300 });
+      contentTranslateX.value = withTiming(0, { duration: 300 });
+    }, 200);
+  };
+
   const handleNext = () => {
+    // Haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Button animation
+    buttonScale.value = withSequence(
+      withSpring(0.95, { damping: 15 }),
+      withSpring(1, { damping: 15 })
+    );
+
     if (step < 4) {
-      setStep(step + 1);
+      animateStepTransition('next', () => {
+        setStep(step + 1);
+      });
     } else {
       Alert.alert('Success', 'Investor profile created!');
-      navigation.navigate('InvestorDashboard');
+      navigation.navigate('InvestorDiscovery');
     }
   };
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1);
+    if (step > 1) {
+      // Haptic feedback
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // Button animation
+      buttonScale.value = withSequence(
+        withSpring(0.95, { damping: 15 }),
+        withSpring(1, { damping: 15 })
+      );
+
+      animateStepTransition('back', () => {
+        setStep(step - 1);
+      });
+    }
   };
 
   const updateForm = (field, value) => {
@@ -63,32 +116,86 @@ const InvestorSignupScreen = ({ navigation }) => {
     }
   };
 
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateX: contentTranslateX.value }],
+  }));
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
   const renderStep = () => {
     switch (step) {
       case 1:
         return (
-          <View>
+          <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Identity</Text>
-            <TextInput style={styles.input} placeholder="Full Name" value={form.fullName} onChangeText={(v) => updateForm('fullName', v)} />
-            <TextInput style={styles.input} placeholder="Email" keyboardType="email-address" value={form.email} onChangeText={(v) => updateForm('email', v)} />
-            <TextInput style={styles.input} placeholder="LinkedIn URL" value={form.linkedinUrl} onChangeText={(v) => updateForm('linkedinUrl', v)} />
-            <TextInput style={styles.input} placeholder="Country" value={form.country} onChangeText={(v) => updateForm('country', v)} />
+            <Text style={styles.stepDescription}>
+              Tell us about yourself
+            </Text>
+            <TextInput 
+              style={styles.input} 
+              placeholder="Full Name" 
+              placeholderTextColor={COLORS.textLight}
+              value={form.fullName} 
+              onChangeText={(v) => updateForm('fullName', v)} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Email" 
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="email-address" 
+              value={form.email} 
+              onChangeText={(v) => updateForm('email', v)} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="LinkedIn URL" 
+              placeholderTextColor={COLORS.textLight}
+              value={form.linkedinUrl} 
+              onChangeText={(v) => updateForm('linkedinUrl', v)} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Country" 
+              placeholderTextColor={COLORS.textLight}
+              value={form.country} 
+              onChangeText={(v) => updateForm('country', v)} 
+            />
           </View>
         );
       case 2:
         return (
-          <View>
+          <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Investor Profile</Text>
+            <Text style={styles.stepDescription}>
+              Define your investment preferences
+            </Text>
             <Text style={styles.label}>Investor Type</Text>
-            <Picker selectedValue={form.investorType} onValueChange={(v) => updateForm('investorType', v)} style={styles.picker}>
-              <Picker.Item label="Select Type" value="" />
-              {investorTypes.map((type) => <Picker.Item key={type} label={type} value={type} />)}
-            </Picker>
+            <View style={styles.pickerContainer}>
+              <Picker 
+                selectedValue={form.investorType} 
+                onValueChange={(v) => updateForm('investorType', v)} 
+                style={styles.picker}
+                dropdownIconColor={COLORS.primary}
+              >
+                <Picker.Item label="Select Type" value="" />
+                {investorTypes.map((type) => <Picker.Item key={type} label={type} value={type} />)}
+              </Picker>
+            </View>
             <Text style={styles.label}>Typical Check Size</Text>
-            <Picker selectedValue={form.checkSizeRange} onValueChange={(v) => updateForm('checkSizeRange', v)} style={styles.picker}>
-              <Picker.Item label="Select Range" value="" />
-              {checkSizeRanges.map((range) => <Picker.Item key={range} label={range} value={range} />)}
-            </Picker>
+            <View style={styles.pickerContainer}>
+              <Picker 
+                selectedValue={form.checkSizeRange} 
+                onValueChange={(v) => updateForm('checkSizeRange', v)} 
+                style={styles.picker}
+                dropdownIconColor={COLORS.primary}
+              >
+                <Picker.Item label="Select Range" value="" />
+                {checkSizeRanges.map((range) => <Picker.Item key={range} label={range} value={range} />)}
+              </Picker>
+            </View>
             <Text style={styles.label}>Sectors of Interest (select up to 5)</Text>
             <View style={styles.chipContainer}>
               {sectors.map((sector) => (
@@ -129,41 +236,112 @@ const InvestorSignupScreen = ({ navigation }) => {
         );
       case 3:
         return (
-          <View>
+          <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Preferences</Text>
-            <TextInput style={[styles.input, styles.textArea]} placeholder="What are you actively looking for right now?" multiline numberOfLines={4} value={form.lookingForText} onChangeText={(v) => updateForm('lookingForText', v)} />
+            <Text style={styles.stepDescription}>
+              Share your investment approach
+            </Text>
+            <TextInput 
+              style={[styles.input, styles.textArea]} 
+              placeholder="What are you actively looking for right now?" 
+              placeholderTextColor={COLORS.textLight}
+              multiline 
+              numberOfLines={4} 
+              value={form.lookingForText} 
+              onChangeText={(v) => updateForm('lookingForText', v)} 
+            />
             <Text style={styles.label}>How many deals do you review per month?</Text>
-            <Picker selectedValue={form.dealsPerMonth} onValueChange={(v) => updateForm('dealsPerMonth', v)} style={styles.picker}>
-              <Picker.Item label="Select" value="" />
-              <Picker.Item label="1–5" value="1–5" />
-              <Picker.Item label="5–15" value="5–15" />
-              <Picker.Item label="15–30" value="15–30" />
-              <Picker.Item label="30+" value="30+" />
-            </Picker>
+            <View style={styles.pickerContainer}>
+              <Picker 
+                selectedValue={form.dealsPerMonth} 
+                onValueChange={(v) => updateForm('dealsPerMonth', v)} 
+                style={styles.picker}
+                dropdownIconColor={COLORS.primary}
+              >
+                <Picker.Item label="Select" value="" />
+                <Picker.Item label="1–5" value="1–5" />
+                <Picker.Item label="5–15" value="5–15" />
+                <Picker.Item label="15–30" value="15–30" />
+                <Picker.Item label="30+" value="30+" />
+              </Picker>
+            </View>
             <Text style={styles.label}>Capital deployment status</Text>
-            <Picker selectedValue={form.capitalStatus} onValueChange={(v) => updateForm('capitalStatus', v)} style={styles.picker}>
-              <Picker.Item label="Select" value="" />
-              <Picker.Item label="Actively deploying" value="Actively deploying" />
-              <Picker.Item label="Deploying in 3–6 months" value="Deploying in 3–6 months" />
-              <Picker.Item label="Just exploring" value="Just exploring" />
-            </Picker>
+            <View style={styles.pickerContainer}>
+              <Picker 
+                selectedValue={form.capitalStatus} 
+                onValueChange={(v) => updateForm('capitalStatus', v)} 
+                style={styles.picker}
+                dropdownIconColor={COLORS.primary}
+              >
+                <Picker.Item label="Select" value="" />
+                <Picker.Item label="Actively deploying" value="Actively deploying" />
+                <Picker.Item label="Deploying in 3–6 months" value="Deploying in 3–6 months" />
+                <Picker.Item label="Just exploring" value="Just exploring" />
+              </Picker>
+            </View>
           </View>
         );
       case 4:
         return (
-          <View>
+          <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Agreements</Text>
-            <Text style={styles.summaryText}>Please review and agree to the following:</Text>
+            <Text style={styles.stepDescription}>
+              Please review and agree to the following
+            </Text>
             <View style={styles.agreementBox}>
-              <Text style={styles.agreementText}>• I agree to the Terms of Service</Text>
-              <Text style={styles.agreementText}>• I confirm I am an accredited investor where required by law</Text>
+              <View style={styles.agreementItem}>
+                <View style={styles.checkIcon}>✓</View>
+                <Text style={styles.agreementText}>I agree to the Terms of Service</Text>
+              </View>
+              <View style={styles.agreementItem}>
+                <View style={styles.checkIcon}>✓</View>
+                <Text style={styles.agreementText}>I confirm I am an accredited investor where required by law</Text>
+              </View>
             </View>
-            <Text style={styles.note}>Investors get immediate dashboard access after signup.</Text>
+            <Text style={styles.note}>
+              Investors get immediate dashboard access after signup.
+            </Text>
           </View>
         );
       default:
         return null;
     }
+  };
+
+  const renderStepIndicator = () => {
+    const steps = [1, 2, 3, 4];
+    return (
+      <View style={styles.stepIndicator}>
+        {steps.map((stepNum) => (
+          <View key={stepNum} style={styles.stepItem}>
+            <View 
+              style={[
+                styles.stepCircle,
+                stepNum === step && styles.stepCircleActive,
+                stepNum < step && styles.stepCircleCompleted,
+              ]}
+            >
+              <Text 
+                style={[
+                  styles.stepNumber,
+                  (stepNum === step || stepNum < step) && styles.stepNumberActive,
+                ]}
+              >
+                {stepNum}
+              </Text>
+            </View>
+            {stepNum < 4 && (
+              <View 
+                style={[
+                  styles.stepLine,
+                  stepNum < step && styles.stepLineCompleted,
+                ]} 
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
   };
 
   return (
@@ -172,21 +350,36 @@ const InvestorSignupScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Investor Signup</Text>
         <Text style={styles.headerSubtitle}>Step {step} of 4</Text>
       </View>
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${(step / 4) * 100}%` }]} />
-      </View>
+
+      {renderStepIndicator()}
+
       <ScrollView style={styles.scrollView}>
-        {renderStep()}
+        <Animated.View style={[styles.contentWrapper, contentAnimatedStyle]}>
+          {renderStep()}
+        </Animated.View>
       </ScrollView>
+
       <View style={styles.buttonRow}>
         {step > 1 && (
-          <TouchableOpacity style={[styles.button, styles.backButton]} onPress={handleBack}>
-            <Text style={styles.buttonText}>Back</Text>
+          <TouchableOpacity 
+            style={[styles.button, styles.backButton]} 
+            onPress={handleBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={[styles.button, styles.nextButton]} onPress={handleNext}>
-          <Text style={styles.buttonText}>{step === 4 ? 'Complete' : 'Next'}</Text>
-        </TouchableOpacity>
+        <Animated.View style={[styles.nextButtonContainer, buttonAnimatedStyle]}>
+          <TouchableOpacity 
+            style={[styles.button, styles.nextButton]} 
+            onPress={handleNext}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.nextButtonText}>
+              {step === 4 ? 'Complete Profile' : 'Continue'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </SafeAreaView>
   );
@@ -195,70 +388,123 @@ const InvestorSignupScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080C14',
+    backgroundColor: COLORS.background,
   },
   header: {
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 28,
-    color: '#F0F4FF',
-    fontFamily: 'ClashDisplay-Bold',
+    fontFamily: FONTS.playfairBold,
+    fontSize: 32,
+    color: COLORS.text,
+    marginBottom: 4,
   },
   headerSubtitle: {
+    fontFamily: FONTS.regular,
     fontSize: 16,
-    color: '#8A94A6',
-    marginTop: 4,
+    color: COLORS.textLight,
   },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#1E2D45',
-    marginHorizontal: 20,
-    borderRadius: 2,
-    overflow: 'hidden',
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    marginBottom: 32,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#C9A84C',
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepCircleActive: {
+    backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: COLORS.primaryLight,
+  },
+  stepCircleCompleted: {
+    backgroundColor: COLORS.success,
+  },
+  stepNumber: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 16,
+    color: COLORS.textLight,
+  },
+  stepNumberActive: {
+    color: '#FFFFFF',
+  },
+  stepLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: COLORS.border,
+  },
+  stepLineCompleted: {
+    backgroundColor: COLORS.success,
   },
   scrollView: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 24,
+  },
+  contentWrapper: {
+    paddingBottom: 40,
+  },
+  stepContainer: {
+    paddingTop: 20,
   },
   stepTitle: {
-    fontSize: 24,
-    color: '#F0F4FF',
-    marginBottom: 20,
-    fontFamily: 'ClashDisplay-Bold',
+    fontFamily: FONTS.playfairBold,
+    fontSize: 28,
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  stepDescription: {
+    fontFamily: FONTS.regular,
+    fontSize: 16,
+    color: COLORS.textLight,
+    marginBottom: 24,
   },
   input: {
-    backgroundColor: '#0F1623',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#1E2D45',
+    borderColor: COLORS.border,
     borderRadius: 12,
     padding: 16,
-    color: '#F0F4FF',
+    color: COLORS.text,
     marginBottom: 16,
     fontSize: 16,
+    fontFamily: FONTS.regular,
   },
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
   label: {
-    color: '#8A94A6',
-    marginBottom: 12,
-    fontSize: 16,
-    marginTop: 8,
+    color: COLORS.text,
+    marginBottom: 8,
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
+  },
+  pickerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
   },
   picker: {
-    backgroundColor: '#0F1623',
-    color: '#F0F4FF',
-    marginBottom: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1E2D45',
+    backgroundColor: '#FFFFFF',
+    color: COLORS.text,
+    height: 50,
   },
   chipContainer: {
     flexDirection: 'row',
@@ -269,67 +515,93 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#1E2D45',
+    backgroundColor: COLORS.border,
     marginRight: 8,
     marginBottom: 8,
   },
   chipSelected: {
-    backgroundColor: '#C9A84C',
+    backgroundColor: COLORS.primary,
   },
   chipText: {
-    color: '#8A94A6',
+    color: COLORS.textLight,
     fontSize: 14,
+    fontFamily: FONTS.regular,
   },
   chipTextSelected: {
-    color: '#080C14',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: FONTS.semiBold,
   },
   agreementBox: {
-    backgroundColor: '#0F1623',
-    padding: 20,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 20,
     marginVertical: 20,
   },
+  agreementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   agreementText: {
-    color: '#F0F4FF',
+    fontFamily: FONTS.regular,
     fontSize: 16,
-    marginBottom: 12,
+    color: COLORS.text,
+    flex: 1,
   },
   note: {
-    color: '#8A94A6',
+    fontFamily: FONTS.regular,
     fontSize: 14,
+    color: COLORS.textLight,
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 20,
   },
-  summaryText: {
-    color: '#F0F4FF',
-    fontSize: 18,
-    marginBottom: 20,
-  },
   buttonRow: {
     flexDirection: 'row',
-    padding: 20,
-    justifyContent: 'space-between',
+    padding: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    backgroundColor: '#FFFFFF',
   },
   button: {
     paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     flex: 1,
-    marginHorizontal: 8,
   },
   backButton: {
-    backgroundColor: '#1E2D45',
+    backgroundColor: COLORS.border,
+    marginRight: 12,
+  },
+  nextButtonContainer: {
+    flex: 1,
   },
   nextButton: {
-    backgroundColor: '#C9A84C',
+    backgroundColor: COLORS.primary,
   },
-  buttonText: {
-    color: '#080C14',
-    fontSize: 18,
-    fontWeight: 'bold',
+  backButtonText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  nextButtonText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 16,
+    color: '#FFFFFF',
   },
 });
 
