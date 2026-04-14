@@ -24,9 +24,7 @@ import * as AuthSession from 'expo-auth-session';
 import Modal from 'react-native-modal';
 import { COLORS, FONTS } from '../constants/theme';
 
-// Placeholder for supabase client - replace with actual import
-// import { supabase } from '../lib/supabase';
-const supabase = { auth: {} }; // dummy
+const supabase = { auth: {} };
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -42,18 +40,17 @@ const AuthScreen = ({ navigation }) => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
-  // Animation values
   const cardTranslateY = useSharedValue(400);
   const tabIndicatorTranslateX = useSharedValue(0);
   const buttonShakeX = useSharedValue(0);
 
-  // Tab switch animation
   useEffect(() => {
-    const targetX = activeTab === 'signup' ? 0 : screenWidth / 2 - 28;
+    // The tab container inner width = screenWidth - 56 (28px padding each side)
+    // Each half = (screenWidth - 56) / 2
+    const targetX = activeTab === 'signup' ? 0 : (screenWidth - 56) / 2;
     tabIndicatorTranslateX.value = withSpring(targetX, { damping: 20, stiffness: 120 });
   }, [activeTab]);
 
-  // Card entry animation
   useEffect(() => {
     cardTranslateY.value = withSpring(0, { damping: 20, stiffness: 120 });
   }, []);
@@ -70,7 +67,6 @@ const AuthScreen = ({ navigation }) => {
     transform: [{ translateX: buttonShakeX.value }],
   }));
 
-  // Validation
   const validateSignup = () => {
     if (!fullName.trim()) return 'Full name is required';
     if (!email.trim() || !email.includes('@') || !email.includes('.')) return 'Valid email is required';
@@ -85,7 +81,6 @@ const AuthScreen = ({ navigation }) => {
     return null;
   };
 
-  // Shake button on invalid
   const shakeButton = () => {
     buttonShakeX.value = withSequence(
       withTiming(10, { duration: 80 }),
@@ -99,7 +94,6 @@ const AuthScreen = ({ navigation }) => {
     } catch (e) {}
   };
 
-  // Sign up handler
   const handleSignUp = async () => {
     const error = validateSignup();
     if (error) {
@@ -111,8 +105,6 @@ const AuthScreen = ({ navigation }) => {
     setAuthError('');
     await new Promise(resolve => setTimeout(resolve, 1500));
     try {
-      // const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
-      // if (error) throw error;
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.navigate('RoleSelection');
     } catch (err) {
@@ -122,7 +114,6 @@ const AuthScreen = ({ navigation }) => {
     }
   };
 
-  // Log in handler
   const handleLogin = async () => {
     const error = validateLogin();
     if (error) {
@@ -133,8 +124,6 @@ const AuthScreen = ({ navigation }) => {
     setLoading(true);
     setAuthError('');
     try {
-      // const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      // if (error) throw error;
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const hasProfile = false;
       if (hasProfile) {
@@ -149,13 +138,10 @@ const AuthScreen = ({ navigation }) => {
     }
   };
 
-  // Social auth
   const handleGoogleAuth = async () => {
     try {
       WebBrowser.maybeCompleteAuthSession();
       const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'pitchin' });
-      // const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectUrl } });
-      // if (data?.url) await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {}
   };
@@ -164,13 +150,10 @@ const AuthScreen = ({ navigation }) => {
     try {
       WebBrowser.maybeCompleteAuthSession();
       const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'pitchin' });
-      // const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo: redirectUrl } });
-      // if (data?.url) await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {}
   };
 
-  // Forgot password
   const handleForgotPassword = async () => {
     if (!resetEmail.trim() || !resetEmail.includes('@')) {
       setAuthError('Please enter a valid email');
@@ -178,7 +161,6 @@ const AuthScreen = ({ navigation }) => {
     }
     setLoading(true);
     try {
-      // await supabase.auth.resetPasswordForEmail(resetEmail, { redirectTo: 'pitchin://reset-password' });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setResetSent(true);
       setTimeout(() => {
@@ -202,16 +184,22 @@ const AuthScreen = ({ navigation }) => {
         resizeMode="cover"
       >
         <View style={styles.overlay} />
-        
+
         <View style={styles.topBranding}>
           <Text style={styles.brandTitle}>Pitch In</Text>
           <Text style={styles.brandSubtitle}>Where dreams meet capital</Text>
           <View style={styles.brandUnderline} />
         </View>
 
+        {/* ── Translucent card slides up from bottom ── */}
         <Animated.View style={[styles.bottomCard, cardAnimatedStyle]}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+            {/* Tab bar */}
             <View style={styles.tabContainer}>
+              {/* Indicator rendered FIRST so text sits on top */}
+              <Animated.View style={[styles.tabIndicator, tabIndicatorStyle]} />
+
               <TouchableOpacity
                 style={styles.tabButton}
                 onPress={() => {
@@ -219,10 +207,11 @@ const AuthScreen = ({ navigation }) => {
                   try { Haptics.selectionAsync(); } catch (e) {}
                 }}
               >
-                <Text style={activeTab === 'signup' ? styles.tabActiveText : styles.tabInactiveText}>
+                <Text style={[styles.tabText, activeTab === 'signup' && styles.tabActiveText]}>
                   Sign Up
                 </Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.tabButton}
                 onPress={() => {
@@ -230,11 +219,10 @@ const AuthScreen = ({ navigation }) => {
                   try { Haptics.selectionAsync(); } catch (e) {}
                 }}
               >
-                <Text style={activeTab === 'login' ? styles.tabActiveText : styles.tabInactiveText}>
+                <Text style={[styles.tabText, activeTab === 'login' && styles.tabActiveText]}>
                   Log In
                 </Text>
               </TouchableOpacity>
-              <Animated.View style={[styles.tabIndicator, tabIndicatorStyle]} />
             </View>
 
             {activeTab === 'signup' ? (
@@ -341,7 +329,7 @@ const AuthScreen = ({ navigation }) => {
                 <Text style={styles.socialButtonText}>Google</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.socialButton, styles.appleButton]} onPress={handleAppleAuth}>
-                <Text style={styles.appleIcon}></Text>
+                <Text style={styles.appleIcon}></Text>
                 <Text style={[styles.socialButtonText, styles.appleButtonText]}>Apple</Text>
               </TouchableOpacity>
             </View>
@@ -447,7 +435,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   bottomCard: {
-    backgroundColor: COLORS.background,
+    // Slightly transparent so the hero image peeks through
+    backgroundColor: 'rgba(255,255,255,0.88)',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 28,
@@ -457,11 +446,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    maxHeight: '70%',
+    maxHeight: '72%',
   },
   scrollContent: {
     paddingBottom: 20,
   },
+
+  // ── Tab bar ──
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: COLORS.surfaceAlt,
@@ -469,33 +460,37 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 24,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  // Indicator sits BEHIND the text buttons (rendered first in JSX)
+  tabIndicator: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    bottom: 4,
+    width: '50%',
+    backgroundColor: COLORS.gold,
+    borderRadius: 10,
+    zIndex: 0,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
+    zIndex: 1,
+  },
+  tabText: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,        // ← smaller
+    color: '#888888',
   },
   tabActiveText: {
     fontFamily: FONTS.semibold,
-    fontSize: 14,
     color: COLORS.white,
-    textAlign: 'center',
   },
-  tabInactiveText: {
-    fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: '#888888',
-    textAlign: 'center',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    backgroundColor: COLORS.gold,
-    borderRadius: 10,
-    height: '100%',
-    width: '50%',
-  },
+
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(245,245,245,0.95)',
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 14,
@@ -505,7 +500,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.text,
     marginBottom: 14,
-    placeholderTextColor: COLORS.textMuted,
   },
   button: {
     backgroundColor: COLORS.gold,
@@ -569,7 +563,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
   appleButton: {
     borderColor: COLORS.text,
