@@ -28,6 +28,18 @@ The **Pitch In Mobile App** is the heart of the Pitch In platform—a premium in
 - **🔔 Push Notifications**: Timely alerts for matches, messages, and milestones
 - **🎨 Smooth Animations**: Lottie animations and gesture-based interactions
 
+## 📱 Visual Examples
+
+| Role Selection | Founder Onboarding | Investor Discovery |
+|----------------|---------------------|---------------------|
+| <img src="../resource/mobile-role-selection.png" width="200"> | <img src="../resource/mobile-founder-onboarding.png" width="200"> | <img src="../resource/mobile-investor-discovery.png" width="200"> |
+
+| Deal Room | Pricing Screen | Notifications |
+|-----------|----------------|----------------|
+| <img src="../resource/mobile-deal-room.png" width="200"> | <img src="../resource/mobile-pricing.png" width="200"> | <img src="../resource/mobile-notifications.png" width="200"> |
+
+*Note: Add your actual screenshots to the resource directory and update paths*
+
 ---
 
 ## 🏗️ Architecture
@@ -144,32 +156,65 @@ The mobile app connects to:
 ```javascript
 // Authentication
 POST /auth/login
+  - Request: { email, password }
+  - Response: { access_token, refresh_token, user }
+
 POST /auth/register
+  - Request: { email, password, role }
+  - Response: { user_id }
+
 POST /auth/refresh
+  - Request: { refresh_token }
+  - Response: { access_token }
 
 // Founders
 POST /founders/onboarding
+  - Request: { name, company, stage, industry, ... }
+  - Response: { status: "pending" | "approved" }
+
 GET  /founders/me
+  - Response: Full founder profile
+
 GET  /founders/discover
+  - Query: ?page=1&limit=10
+  - Response: Paginated investor matches
 
 // Investors
 POST /investors/onboarding
+  - Request: { name, firm, thesis, industries, ... }
+  - Response: { status: "complete" }
+
 GET  /investors/me
+  - Response: Full investor profile
+
 GET  /investors/discover
+  - Query: ?page=1&limit=10
+  - Response: Paginated founder matches
 
 // Matches
 POST /matches/request
+  - Request: { to_user_id, message }
+  - Response: { match_id }
+
 GET  /matches/pending
+  - Response: List of pending match requests
+
 POST /matches/accept
+  - Request: { match_id }
+  - Response: { deal_room_id }
 
 // Deal Rooms
 GET  /deal-rooms/{room_id}
+  - Response: { messages: [...], documents: [...] }
+
 POST /deal-rooms/{room_id}/message
+  - Request: { text }
+  - Response: { message_id }
 ```
 
 ### Real-Time Features
-- **WebSocket Connections**: Deal room chat
-- **Supabase Realtime**: Match notifications, status updates
+- **WebSocket Connections**: Deal room chat (ws://localhost:8000/ws)
+- **Supabase Realtime**: Match notifications, status updates (channels: 'match_requests')
 - **Push Notifications**: Expo Notifications for background alerts
 
 ---
@@ -203,11 +248,13 @@ POST /deal-rooms/{room_id}/message
 ### Unit Tests
 ```bash
 npm test
+# Runs Jest tests in __tests__ directories
 ```
 
 ### Component Tests
 ```bash
 npm run test:components
+# Tests React components using React Testing Library
 ```
 
 ### E2E Tests (Detox)
@@ -217,7 +264,24 @@ npm run e2e:ios
 
 # Android
 npm run e2e:android
+
+# Common flags:
+# --cleanup: Remove artifacts after tests
+# --record: Record test execution video
+# --debug: Pause on test failures
 ```
+
+### Test Coverage
+```bash
+npm run test:coverage
+# Generates coverage report in coverage/ directory
+```
+
+### Testing Best Practices
+- Test critical user flows: onboarding, matching, payments
+- Mock API responses for reliable testing
+- Use test IDs for UI elements
+- Run tests on CI before merging PRs
 
 ---
 
@@ -266,16 +330,28 @@ eas build --platform ios --profile production
    - Ensure backend is running on `http://localhost:8000`
    - Check `.env` configuration
    - Verify no firewall blocking ports
+   - Test connection: `curl http://localhost:8000/health`
 
 3. **"Expo Go connection issues"**
    - Ensure device and computer are on same network
    - Try `npx expo start --tunnel`
    - Use `npx expo start --lan` for local network
+   - Reset network: `expo r -c`
 
 4. **"Build failures"**
    - Clear Expo cache: `npx expo start --clear`
    - Check Node.js version (requires 18+)
    - Verify all dependencies are compatible
+
+5. **"Push notifications not working"**
+   - Verify Expo push token is generated
+   - Check notification permissions on device
+   - Ensure backend is configured with Expo access token
+
+6. **"Real-time features not updating"**
+   - Check WebSocket connection status
+   - Verify Supabase Realtime is enabled
+   - Ensure correct channel subscriptions
 
 ---
 
